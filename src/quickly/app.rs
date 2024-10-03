@@ -1,7 +1,8 @@
 use std::net::{TcpListener, TcpStream};
 use std::io::{Read, Write};
-use crate::router::Router;
-use crate::middleware::Middleware;
+use crate::quickly::http::{Request, Response}; // On importe les nouveaux types Request et Response
+use crate::quickly::router::Router;
+use crate::quickly::middleware::Middleware;
 
 pub struct App {
     router: Router,
@@ -16,7 +17,8 @@ impl App {
         }
     }
 
-    pub fn get(&mut self, path: &str, handler: fn(&str) -> crate::response::Response) {
+    // Modification pour accepter un handler avec Request et Response
+    pub fn get(&mut self, path: &str, handler: fn(&Request, Response) -> Response) {
         self.router.add_route("GET", path, handler);
     }
 
@@ -25,11 +27,10 @@ impl App {
     }
 
     pub fn run(&mut self, port: &str) {
-        let default_addr: &str = "127.0.0.1:";
-        let addr = default_addr.to_string() + port;
-        println!("{}", addr);
-        let listener = TcpListener::bind(addr).expect("Failed to bind to address");
-        println!("Listening on http://127.0.0.1:{}", port);
+        let addr = format!("127.0.0.1:{}", port);
+        println!("Listening on http://{}", addr);
+
+        let listener = TcpListener::bind(&addr).expect("Failed to bind to address");
 
         for stream in listener.incoming() {
             match stream {
@@ -46,7 +47,10 @@ impl App {
     fn handle_connection(&self, mut stream: TcpStream) {
         let mut buffer = [0; 1024];
         stream.read(&mut buffer).unwrap();
-        let request = String::from_utf8_lossy(&buffer[..]);
+        let request_str = String::from_utf8_lossy(&buffer[..]);
+
+        // Parse la requête HTTP en un objet Request
+        let request = crate::quickly::http::parse_request(&request_str);
 
         // Gestion du middleware
         let response = self.run_middlewares(&request, &self.router);
@@ -57,14 +61,14 @@ impl App {
         stream.flush().unwrap();
     }
 
-    fn run_middlewares(&self, req: &str, router: &Router) -> crate::response::Response {
+    // La fonction `run_middlewares` prend maintenant un objet `Request`
+    fn run_middlewares(&self, req: &Request, router: &Router) -> Response {
         // Boxe la première closure
-        let mut next: Box<dyn Fn(&str) -> crate::response::Response> =
-            Box::new(|req: &str| router.handle_request(req));
+        let mut next: Box<dyn Fn(&Request) -> Response> = Box::new(|req: &Request| router.handle_request(req));
 
         for middleware in self.middlewares.iter().rev() {
             let old_next = next; // Capture l'ancien "next"
-            next = Box::new(move |req: &str| middleware(req, &old_next));
+            next = Box::new(move |req: &Request| middleware(req, &old_next));
         }
 
         next(req)

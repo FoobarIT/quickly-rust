@@ -1,16 +1,14 @@
-mod app;
-mod router;
-mod middleware;
-mod response;
-
-use app::App;
+use quickly_rust::quickly::app::App;
+use quickly_rust::quickly::http::{Request, Response};
 
 fn main() {
     let mut app = App::new();
 
-    app.get("/", |_req| {
-        response::Response::new(200, "Hello, World!")
+    app.get("/", |_req: &Request, mut res: Response| {
+        res.body = String::from("Hello, World:");
+        res
     });
+ 
 
     app.use_middleware(|req, next| {
         println!("Middleware: Before");
