@@ -16,12 +16,28 @@ impl App {
             middlewares: Vec::new(),
         }
     }
-
-    // Modification pour accepter un handler avec Request et Response
+    
     pub fn get(&mut self, path: &str, handler: fn(&Request, Response) -> Response) {
         self.router.add_route("GET", path, handler);
     }
-
+    pub fn post(&mut self, path: &str, handler: fn(&Request, Response) -> Response) {
+        self.router.add_route("POST", path, handler);
+    }
+    pub fn put(&mut self, path: &str, handler: fn(&Request, Response) -> Response) {
+        self.router.add_route("PUT", path, handler);
+    }
+    pub fn delete(&mut self, path: &str, handler: fn(&Request, Response) -> Response) {
+        self.router.add_route("DELETE", path, handler);
+    }
+    pub fn patch(&mut self, path: &str, handler: fn(&Request, Response) -> Response) {
+        self.router.add_route("PATCH", path, handler);
+    }
+    pub fn options(&mut self, path: &str, handler: fn(&Request, Response) -> Response) {
+        self.router.add_route("OPTIONS", path, handler);
+    }
+    pub fn head(&mut self, path: &str, handler: fn(&Request, Response) -> Response) {
+        self.router.add_route("HEAD", path, handler);
+    }
     pub fn use_middleware(&mut self, middleware: Middleware) {
         self.middlewares.push(middleware);
     }
@@ -49,21 +65,16 @@ impl App {
         stream.read(&mut buffer).unwrap();
         let request_str = String::from_utf8_lossy(&buffer[..]);
 
-        // Parse la requête HTTP en un objet Request
         let request = crate::quickly::http::parse_request(&request_str);
 
-        // Gestion du middleware
         let response = self.run_middlewares(&request, &self.router);
 
-        // Envoi de la réponse
         let response_str = response.to_string();
         stream.write_all(response_str.as_bytes()).unwrap();
         stream.flush().unwrap();
     }
 
-    // La fonction `run_middlewares` prend maintenant un objet `Request`
     fn run_middlewares(&self, req: &Request, router: &Router) -> Response {
-        // Boxe la première closure
         let mut next: Box<dyn Fn(&Request) -> Response> = Box::new(|req: &Request| router.handle_request(req));
 
         for middleware in self.middlewares.iter().rev() {
