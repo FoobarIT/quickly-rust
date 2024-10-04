@@ -5,6 +5,7 @@ pub struct Request {
     pub path: String,
     pub headers: HashMap<String, String>,
     pub body: String,
+    pub params: HashMap<String, String>, // Params pour stocker les paramètres d'URL
 }
 
 pub struct Response {
@@ -14,6 +15,7 @@ pub struct Response {
 }
 
 impl Response {
+    // Constructeur de base pour la réponse
     pub fn new(status_code: u16, body: &str) -> Self {
         let mut headers = HashMap::new();
         headers.insert("Content-Type".to_string(), "text/plain".to_string());
@@ -25,11 +27,13 @@ impl Response {
         }
     }
 
+    // Ajouter un header à la réponse
     pub fn header(mut self, key: &str, value: &str) -> Self {
         self.headers.insert(key.to_string(), value.to_string());
         self
     }
 
+    // Remplace le corps de la réponse
     pub fn send(mut self, body: &str) -> Self {
         self.body = body.to_string();
         self
@@ -49,12 +53,25 @@ impl Response {
     }
 }
 
-// La fonction parse_request convertit une requête brute en un objet Request structuré
+impl Request {
+    pub fn new(method: &str, path: &str) -> Request {
+        Request {
+            method: method.to_string(),
+            path: path.to_string(),
+            headers: HashMap::new(),
+            body: String::new(),
+            params: HashMap::new(), // Initie les paramètres d'URL
+        }
+    }
+    pub fn param(&self, key: &str) -> Option<&String> {
+        self.params.get(key)
+    }
+}
+
 pub fn parse_request(request: &str) -> Request {
     let lines: Vec<&str> = request.lines().collect();
     let (method, path) = parse_request_line(lines[0]);
 
-    // Extraire les headers
     let mut headers = HashMap::new();
     let mut body = String::new();
     let mut is_body = false;
@@ -78,9 +95,11 @@ pub fn parse_request(request: &str) -> Request {
         path: path.to_string(),
         headers,
         body,
+        params: HashMap::new(), // Initialise avec des paramètres vides (seront ajoutés plus tard si nécessaire)
     }
 }
 
+// Fonction pour analyser la première ligne d'une requête HTTP (méthode et chemin)
 fn parse_request_line(line: &str) -> (&str, &str) {
     let parts: Vec<&str> = line.split_whitespace().collect();
     if parts.len() >= 2 {
