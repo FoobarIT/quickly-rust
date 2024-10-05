@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub struct Request {
     pub method: String,
     pub path: String,
@@ -89,7 +90,7 @@ pub fn parse_request(request: &str) -> Request {
             }
         }
     }
-
+    
     Request {
         method: method.to_string(),
         path: path.to_string(),
