@@ -71,7 +71,10 @@ impl Request {
 
 pub fn parse_request(request: &str) -> Request {
     let lines: Vec<&str> = request.lines().collect();
-    let (method, path) = parse_request_line(lines[0]);
+    let (method, path) = match parse_request_line(lines[0]) {
+        Ok((method, path)) => (method, path),
+        Err(e) => return Request::new("ERROR", e),
+    };
 
     let mut headers = HashMap::new();
     let mut body = String::new();
@@ -101,12 +104,12 @@ pub fn parse_request(request: &str) -> Request {
 }
 
 // Fonction pour analyser la première ligne d'une requête HTTP (méthode et chemin)
-fn parse_request_line(line: &str) -> (&str, &str) {
-    let parts: Vec<&str> = line.split_whitespace().collect();
-    if parts.len() >= 2 {
-        (parts[0], parts[1])
+fn parse_request_line(request: &str) -> Result<(&str, &str), &str> {
+    let parts: Vec<&str> = request.split_whitespace().collect();
+    if parts.len() == 3 && parts[2].starts_with("HTTP/") {
+        Ok((parts[0], parts[1]))
     } else {
-        ("GET", "/")
+        Err("Invalid request")
     }
 }
 
@@ -116,5 +119,16 @@ fn parse_header(line: &str) -> Option<(String, String)> {
         Some((parts[0].trim().to_string(), parts[1].trim().to_string()))
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_request_line() {
+        assert_eq!(parse_request_line("GET /index.html HTTP/1.1"), Ok(("GET", "/index.html")));
+        assert_eq!(parse_request_line("INVALID REQUEST"), Err("Invalid request"));
     }
 }
