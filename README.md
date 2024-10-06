@@ -1,8 +1,8 @@
-# Quickly Rust v0.01
+# Quickly Rust v1.0.0-alpha
 
 This project implements a small web server in Rust, capable of handling HTTP requests with multiple methods (GET, POST, PUT, DELETE, etc.) and middleware management. The server uses a custom router to match routes with specific handlers and supports URL parameters.
 
-*Please dont using it on production, wait v1.00! 🤡*
+*Please dont using it on production, wait v1.0.0-stable ! 🤡*
 
 
 ## Table of Contents
