@@ -75,18 +75,29 @@ impl Request {
     }
 }
 
-pub fn parse_request(request: &str) -> Request {
+pub fn parse_request(request: &str) -> Result<Request, &str> {
     let lines: Vec<&str> = request.lines().collect();
     let (method, path) = match parse_request_line(lines[0]) {
         Ok((method, path)) => (method, path),
-        Err(e) => return Request::new("ERROR", e),
+        Err(e) => return Err(e),
     };
+    let (headers, body) = parse_headers_and_body(&lines[1..]);
 
+    Ok(Request {
+        method: method.to_string(),
+        path: path.to_string(),
+        headers,
+        body,
+        params: HashMap::new(),
+    })
+}
+
+pub fn parse_headers_and_body(lines: &[&str]) -> (HashMap<String, String>, String) {
     let mut headers = HashMap::new();
     let mut body = String::new();
     let mut is_body = false;
 
-    for line in &lines[1..] {
+    for line in lines {
         if line.is_empty() {
             is_body = true;
             continue;
@@ -99,16 +110,8 @@ pub fn parse_request(request: &str) -> Request {
             }
         }
     }
-    
-    Request {
-        method: method.to_string(),
-        path: path.to_string(),
-        headers,
-        body,
-        params: HashMap::new(), // Initialise avec des paramètres vides (seront ajoutés plus tard si nécessaire)
-    }
+    (headers, body)
 }
-
 // Fonction pour analyser la première ligne d'une requête HTTP (méthode et chemin)
 fn parse_request_line(request: &str) -> Result<(&str, &str), &str> {
     let parts: Vec<&str> = request.split_whitespace().collect();
@@ -164,5 +167,18 @@ mod tests {
         let response = Response::new(200, "")
             .send("body");
         assert_eq!(response.body, "body");
+    }
+    #[test]
+    fn test_parse_headers_and_body() {
+        let (headers, body) = parse_headers_and_body(&[
+            "Host: localhost",
+            "Content-Length: 5",
+            "",
+            "hello",
+        ]);
+
+        assert_eq!(headers.get("Host"), Some(&"localhost".to_string()));
+        assert_eq!(headers.get("Content-Length"), Some(&"5".to_string()));
+        assert_eq!(body, "hello");
     }
 }

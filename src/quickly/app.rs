@@ -66,9 +66,15 @@ impl App {
             Ok(_) => {
                 let request_str = String::from_utf8_lossy(&buffer[..]);
 
-                let mut request = crate::quickly::http::parse_request(&request_str);
+                let request_result = crate::quickly::http::parse_request(&request_str);
 
-                let response = self.run_middlewares(&mut request, &self.router);
+                let response = match request_result {
+                    Ok(mut request) => self.run_middlewares(&mut request, &self.router),
+                    Err(err) => {
+                        eprintln!("Failed to parse request: {}", err);
+                        crate::quickly::http::Response::new(400, "Bad Request")
+                    }
+                };
 
                 let response_str = response.to_string();
                 stream.write_all(response_str.as_bytes()).unwrap();
