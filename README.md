@@ -38,7 +38,7 @@ The `App` component is the central element of the application. It manages the ro
 - `get(path, handler)`: Adds a GET route to the router.
 - `post(path, handler)`: Adds a POST route to the router.
 - `run(port)`: Starts the TCP server on the specified port and processes incoming requests.
-- `use_middleware(middleware)`: Adds a middleware that will be applied to every request.
+- `work(path, func, next)`: Adds a middleware that will be applied to every request.
 
 #### Example
 
@@ -88,15 +88,18 @@ res.send("Hello, world!")
 ### Middleware
 Middlewares are functions that intercept and modify requests before they reach route handlers.
 
-#### Signature
-```rust
-type Middleware = fn(&mut Request, &dyn Fn(&mut Request) -> Response) -> Response;
-```
 #### Example
 ```rust
-app.use_middleware(|req: &mut Request, next| {
-    println!("Middleware: request method {:?}", req.method);
-    next(req)
+app.work(None, |req, next| {
+    println!("Middleware: Global");
+    let response = next(req);
+    response
+});
+//Or specify route:
+app.work(Some("/json"), |req, next| {
+    println!("Middleware: JSON");
+    let response = next(req);
+    response
 });
 ```
 
@@ -122,11 +125,16 @@ fn main() {
             res.send("Bad ID")
         }
     });
-
-    app.use_middleware(|req, next| {
-        println!("Middleware: Before");
+    app.work(None, |req, next| {
+        println!("Middleware: Global");
         let response = next(req);
-        println!("Middleware: After");
+        response
+    
+    });
+
+    app.work(Some("/json"), |req, next| {
+        println!("Middleware: JSON");
+        let response = next(req);
         response
     });
 

@@ -19,10 +19,18 @@ fn main() {
         }
     });
 
-    app.use_middleware(|req, next| {
+    // All routes apply to this middleware
+    app.work(None, |req, next| {
+        println!("Middleware: Global");
         println!("Middleware: Before");
         let response = next(req);
         println!("Middleware: After");
+        response
+    });
+
+    app.work(Some("/json"), |req, next| {
+        println!("Middleware: JSON");
+        let response = next(req);
         response
     });
 
