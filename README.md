@@ -1,4 +1,4 @@
-# Quickly Rust v1.0.0-alpha
+# Quickly Rust v0.1.0-alpha
 
 This project implements a small web server in Rust, capable of handling HTTP requests with multiple methods (GET, POST, PUT, DELETE, etc.) and middleware management. The server uses a custom router to match routes with specific handlers and supports URL parameters.
 
@@ -79,6 +79,7 @@ Response contains the information needed to send an HTTP response.
 * `header(key, value)`: Adds a header to the response.
 * `send(body)`: Sets the response body.
 * `to_string()`: Formats the response for sending over a TCP connection.
+* `json()`: Response with body in json.
 #### Example
 ```rust
 res.send("Hello, world!") 
@@ -110,6 +111,10 @@ fn main() {
         res.send("Hello, world!")
     });
     
+    app.get("/json", |_req, res| {
+        res.json(r#"{"message": "Hello, world!"}"#)
+    });
+
     app.get("/users/:id", |req, res| {
         if let Some(user_id) = req.param("id") {
             res.send(&format!("User ID: {}", user_id))
