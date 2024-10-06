@@ -7,6 +7,10 @@ fn main() {
         res.send("Hello, world!")
     });
     
+    app.get("/json", |_req, res| {
+        res.json(r#"{"message": "Hello, world!"}"#)
+    });
+
     app.get("/users/:id", |req, res| {
         if let Some(user_id) = req.param("id") {
             res.send(&format!("User ID: {}", user_id))
