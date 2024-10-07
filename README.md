@@ -80,6 +80,7 @@ Response contains the information needed to send an HTTP response.
 * `send(body)`: Sets the response body.
 * `to_string()`: Formats the response for sending over a TCP connection.
 * `json()`: Response with body in json.
+* `cookie(key, value, option)`: Set cookie `name` & `value`.
 #### Example
 ```rust
 res.send("Hello, world!") 
@@ -109,27 +110,36 @@ use quickly_rust::quickly::app::App;
 
 fn main() {
     let mut app = App::new();
-
+    //  Send example
     app.get("/", |_req, res| {
         res.send("Hello, world!")
     });
-    
+    // Json example
     app.get("/json", |_req, res| {
         res.json(r#"{"message": "Hello, world!"}"#)
     });
-
-    app.get("/users/:id", |req, res| {
-        if let Some(user_id) = req.param("id") {
+    // Param exampel
+    app.get("/users/:id", |_req, res| {
+        if let Some(user_id) = _req.param("id") {
             res.send(&format!("User ID: {}", user_id))
         } else {
             res.send("Bad ID")
         }
     });
+    // Cookie example
+    app.get("/cookie", |_req, res| {
+        res.cookie("token", "token_value", "Secure; HttpOnly")
+        .send("Cookie set")
+    });
+
+
+    // All routes apply to this middleware
     app.work(None, |req, next| {
         println!("Middleware: Global");
+        println!("Middleware: Before");
         let response = next(req);
+        println!("Middleware: After");
         response
-    
     });
 
     app.work(Some("/json"), |req, next| {
