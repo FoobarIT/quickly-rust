@@ -46,6 +46,16 @@ impl Response {
         self
     }
 
+    pub fn cookie(mut self, key: &str, value: &str, options: &str) -> Self {
+        self.headers.insert("Set-Cookie".to_string(), format!("{}={}; {}", key, value, options));
+        self
+    }
+    
+    pub fn clear_cookie(mut self, key: &str) -> Self {
+        self.headers.insert("Set-Cookie".to_string(), format!("{}=; Max-Age=0", key));
+        self
+    }
+
     pub fn to_string(&self) -> String {
         let mut response = format!("HTTP/1.1 {} OK\r\n", self.status_code);
 

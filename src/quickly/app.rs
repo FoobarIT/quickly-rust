@@ -26,7 +26,7 @@ impl App {
     }
     
     pub fn get(&mut self, path: &str, handler: fn(&mut Request, Response) -> Response) {
-        self.router.add_route("GET", path, handler);
+       self.router.add_route("GET", path, handler);
     }
     pub fn post(&mut self, path: &str, handler: fn(&mut Request, Response) -> Response) {
         self.router.add_route("POST", path, handler);
@@ -46,6 +46,10 @@ impl App {
     pub fn head(&mut self, path: &str, handler: fn(&mut Request, Response) -> Response) {
         self.router.add_route("HEAD", path, handler);
     }
+    pub fn method(&mut self, method: &str, path: &str, handler: fn(&mut Request, Response) -> Response) {
+        self.router.add_route(method, path, handler);
+    }
+
     pub fn work<F>(&mut self, path: Option<&str>, func: F)
     where 
         F: Fn(&mut Request, &dyn Fn(&mut Request) -> Response) -> Response + 'static,
@@ -73,6 +77,7 @@ impl App {
             }
         }
     }
+
 
     fn handle_connection(&self, mut stream: TcpStream) {
         let mut buffer = [0; BUFFER_SIZE];
