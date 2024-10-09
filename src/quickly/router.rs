@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use crate::quickly::http::{Request, Response};
+use std::collections::HashMap;
 
 type Handler = fn(&mut Request, Response) -> Response;
 
@@ -37,7 +37,7 @@ impl Router {
 
         match found_route {
             Some(handler) => handler(request, Response::new(200, "OK")),
-            None => Response::new(404, "Not Found")
+            None => Response::new(404, "Not Found"),
         }
     }
 

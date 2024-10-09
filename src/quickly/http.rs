@@ -41,18 +41,23 @@ impl Response {
     }
 
     pub fn json(mut self, body: &str) -> Self {
-        self.headers.insert("Content-Type".to_string(), "application/json".to_string());
+        self.headers
+            .insert("Content-Type".to_string(), "application/json".to_string());
         self.body = body.to_string();
         self
     }
 
     pub fn cookie(mut self, key: &str, value: &str, options: &str) -> Self {
-        self.headers.insert("Set-Cookie".to_string(), format!("{}={}; {}", key, value, options));
+        self.headers.insert(
+            "Set-Cookie".to_string(),
+            format!("{}={}; {}", key, value, options),
+        );
         self
     }
-    
+
     pub fn clear_cookie(mut self, key: &str) -> Self {
-        self.headers.insert("Set-Cookie".to_string(), format!("{}=; Max-Age=0", key));
+        self.headers
+            .insert("Set-Cookie".to_string(), format!("{}=; Max-Age=0", key));
         self
     }
 
@@ -147,45 +152,54 @@ mod tests {
 
     #[test]
     fn test_parse_request_line() {
-        assert_eq!(parse_request_line("GET /index.html HTTP/1.1"), Ok(("GET", "/index.html")));
-        assert_eq!(parse_request_line("INVALID REQUEST"), Err("Invalid request"));
+        assert_eq!(
+            parse_request_line("GET /index.html HTTP/1.1"),
+            Ok(("GET", "/index.html"))
+        );
+        assert_eq!(
+            parse_request_line("INVALID REQUEST"),
+            Err("Invalid request")
+        );
     }
 
     #[test]
     fn test_parse_header() {
-        assert_eq!(parse_header("Host: localhost"), Some(("Host".to_string(), "localhost".to_string())));
+        assert_eq!(
+            parse_header("Host: localhost"),
+            Some(("Host".to_string(), "localhost".to_string()))
+        );
         assert_eq!(parse_header("Invalid Header"), None);
     }
 
     #[test]
     fn test_response_json() {
         let response = Response::new(200, "").json(r#"{"key": "value"}"#);
-        
-        assert_eq!(response.headers.get("Content-Type"), Some(&"application/json".to_string()));
+
+        assert_eq!(
+            response.headers.get("Content-Type"),
+            Some(&"application/json".to_string())
+        );
         assert_eq!(response.body, r#"{"key": "value"}"#);
     }
 
     #[test]
     fn test_response_header() {
-        let response = Response::new(200, "")
-            .header("X-Custom-Header", "Value");
-        assert_eq!(response.headers.get("X-Custom-Header"), Some(&"Value".to_string()));
+        let response = Response::new(200, "").header("X-Custom-Header", "Value");
+        assert_eq!(
+            response.headers.get("X-Custom-Header"),
+            Some(&"Value".to_string())
+        );
     }
 
     #[test]
     fn test_response_send() {
-        let response = Response::new(200, "")
-            .send("body");
+        let response = Response::new(200, "").send("body");
         assert_eq!(response.body, "body");
     }
     #[test]
     fn test_parse_headers_and_body() {
-        let (headers, body) = parse_headers_and_body(&[
-            "Host: localhost",
-            "Content-Length: 5",
-            "",
-            "hello",
-        ]);
+        let (headers, body) =
+            parse_headers_and_body(&["Host: localhost", "Content-Length: 5", "", "hello"]);
 
         assert_eq!(headers.get("Host"), Some(&"localhost".to_string()));
         assert_eq!(headers.get("Content-Length"), Some(&"5".to_string()));
