@@ -2,10 +2,9 @@ use quickly_rust::quickly::app::App;
 
 fn main() {
     let mut app = App::new();
+
     //  Send example
-    app.get("/", |_req, res| {
-        res.send("Hello, world!")
-    });
+    app.get("/", |_req, res| res.send("Hello, world!"));
     // Json example
     app.get("/json", |_req, res| {
         res.json(r#"{"message": "Hello, world!"}"#)
@@ -21,9 +20,8 @@ fn main() {
     // Cookie example
     app.get("/cookie", |_req, res| {
         res.cookie("token", "token_value", "Secure; HttpOnly")
-        .send("Cookie set")
+            .send("Cookie set")
     });
-
 
     // All routes apply to this middleware
     app.work(None, |req, next| {
@@ -41,5 +39,4 @@ fn main() {
     });
 
     app.run("3000");
-    
 }

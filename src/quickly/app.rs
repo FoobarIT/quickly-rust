@@ -1,11 +1,10 @@
-use std::net::{TcpListener, TcpStream};
-use std::io::{Read, Write};
 use crate::quickly::http::{Request, Response}; // On importe les nouveaux types Request et Response
 use crate::quickly::router::Router;
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
 
 const ADDR: &str = "127.0.0.1";
 const BUFFER_SIZE: usize = 1024;
-
 
 struct Middleware {
     path: Option<String>,
@@ -24,9 +23,9 @@ impl App {
             middlewares: Vec::new(),
         }
     }
-    
+
     pub fn get(&mut self, path: &str, handler: fn(&mut Request, Response) -> Response) {
-       self.router.add_route("GET", path, handler);
+        self.router.add_route("GET", path, handler);
     }
     pub fn post(&mut self, path: &str, handler: fn(&mut Request, Response) -> Response) {
         self.router.add_route("POST", path, handler);
@@ -46,12 +45,17 @@ impl App {
     pub fn head(&mut self, path: &str, handler: fn(&mut Request, Response) -> Response) {
         self.router.add_route("HEAD", path, handler);
     }
-    pub fn method(&mut self, method: &str, path: &str, handler: fn(&mut Request, Response) -> Response) {
+    pub fn method(
+        &mut self,
+        method: &str,
+        path: &str,
+        handler: fn(&mut Request, Response) -> Response,
+    ) {
         self.router.add_route(method, path, handler);
     }
 
     pub fn work<F>(&mut self, path: Option<&str>, func: F)
-    where 
+    where
         F: Fn(&mut Request, &dyn Fn(&mut Request) -> Response) -> Response + 'static,
     {
         self.middlewares.push(Middleware {
@@ -61,7 +65,7 @@ impl App {
     }
 
     pub fn run(&mut self, port: &str) {
-        let addr = format!("{}:{}",ADDR, port);
+        let addr = format!("{}:{}", ADDR, port);
         println!("Listening on http://{}", addr);
 
         let listener = TcpListener::bind(&addr).expect("Failed to bind to address");
@@ -77,7 +81,6 @@ impl App {
             }
         }
     }
-
 
     fn handle_connection(&self, mut stream: TcpStream) {
         let mut buffer = [0; BUFFER_SIZE];
@@ -106,7 +109,8 @@ impl App {
     }
 
     fn run_middlewares(&self, req: &mut Request, router: &Router) -> Response {
-        let mut next: Box<dyn Fn(&mut Request) -> Response> = Box::new(|req: &mut Request| router.handle_request(req));
+        let mut next: Box<dyn Fn(&mut Request) -> Response> =
+            Box::new(|req: &mut Request| router.handle_request(req));
 
         for middleware in self.middlewares.iter().rev() {
             let old_next = next;
