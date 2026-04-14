@@ -41,7 +41,7 @@ impl Router {
         }
     }
 
-    fn parse_route_key<'a>(&'a self, route_key: &'a str) -> (&str, &str) {
+    fn parse_route_key<'a>(&'a self, route_key: &'a str) -> (&'a str, &'a str) {
         let parts: Vec<&str> = route_key.split_whitespace().collect();
         (parts[0], parts[1])
     }

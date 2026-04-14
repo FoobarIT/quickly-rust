@@ -157,7 +157,7 @@ impl App {
             let path = middleware.path.clone();
             next = Box::new(move |req: &mut Request| {
                 if let Some(ref p) = path {
-                    if req.path.starts_with(p) {
+                    if path_matches_middleware(req.path.as_str(), p.as_str()) {
                         return (middleware.func)(req, &old_next);
                     }
                 } else {
@@ -167,5 +167,32 @@ impl App {
             });
         }
         next(req)
+    }
+}
+
+fn path_matches_middleware(request_path: &str, middleware_path: &str) -> bool {
+    request_path == middleware_path
+        || request_path
+            .strip_prefix(middleware_path)
+            .is_some_and(|suffix| suffix.starts_with('/'))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::path_matches_middleware;
+
+    #[test]
+    fn test_path_matches_middleware_exact_match() {
+        assert!(path_matches_middleware("/json", "/json"));
+    }
+
+    #[test]
+    fn test_path_matches_middleware_nested_path() {
+        assert!(path_matches_middleware("/json/items", "/json"));
+    }
+
+    #[test]
+    fn test_path_matches_middleware_rejects_partial_prefix() {
+        assert!(!path_matches_middleware("/jsonx", "/json"));
     }
 }
