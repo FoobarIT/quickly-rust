@@ -1,10 +1,10 @@
-use crate::quickly::http::{Request, Response}; // On importe les nouveaux types Request et Response
+use crate::quickly::http::{Request, Response};
 use crate::quickly::router::Router;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 
 const ADDR: &str = "127.0.0.1";
-const BUFFER_SIZE: usize = 1024;
+const READ_BUFFER_SIZE: usize = 1024;
 
 struct Middleware {
     path: Option<String>,
@@ -82,12 +82,52 @@ impl App {
         }
     }
 
-    fn handle_connection(&self, mut stream: TcpStream) {
-        let mut buffer = [0; BUFFER_SIZE];
-        match stream.read(&mut buffer) {
-            Ok(_) => {
-                let request_str = String::from_utf8_lossy(&buffer[..]);
+    fn read_http_request(&self, stream: &mut TcpStream) -> std::io::Result<String> {
+        let mut buffer = [0; READ_BUFFER_SIZE];
+        let mut request_data = Vec::new();
 
+        loop {
+            let bytes_read = stream.read(&mut buffer)?;
+
+            if bytes_read == 0 {
+                break;
+            }
+
+            request_data.extend_from_slice(&buffer[..bytes_read]);
+
+            let request_str = String::from_utf8_lossy(&request_data);
+
+            if let Some(headers_end) = request_str.find("\r\n\r\n") {
+                let headers = &request_str[..headers_end];
+                let body_start = headers_end + 4;
+
+                let content_length = headers
+                    .lines()
+                    .find_map(|line| {
+                        let mut parts = line.splitn(2, ':');
+                        let key = parts.next()?.trim();
+                        let value = parts.next()?.trim();
+
+                        if key.eq_ignore_ascii_case("Content-Length") {
+                            value.parse::<usize>().ok()
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or(0);
+
+                if request_data.len() >= body_start + content_length {
+                    break;
+                }
+            }
+        }
+
+        Ok(String::from_utf8_lossy(&request_data).to_string())
+    }
+
+    fn handle_connection(&self, mut stream: TcpStream) {
+        match self.read_http_request(&mut stream) {
+            Ok(request_str) => {
                 let request_result = crate::quickly::http::parse_request(&request_str);
 
                 let response = match request_result {
