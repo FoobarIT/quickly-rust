@@ -62,9 +62,20 @@ impl Response {
     }
 
     pub fn to_string(&self) -> String {
-        let mut response = format!("HTTP/1.1 {} OK\r\n", self.status_code);
+        let reason = match self.status_code {
+            200 => "OK",
+            400 => "Bad Request",
+            404 => "Not Found",
+            500 => "Internal Server Error",
+            _ => "Unknown",
+        };
 
-        for (key, value) in &self.headers {
+        let mut headers = self.headers.clone();
+        headers.insert("Content-Length".to_string(), self.body.len().to_string());
+
+        let mut response = format!("HTTP/1.1 {} {}\r\n", self.status_code, reason);
+
+        for (key, value) in &headers {
             response.push_str(&format!("{}: {}\r\n", key, value));
         }
 
