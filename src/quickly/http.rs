@@ -7,6 +7,7 @@ pub struct Request {
     pub headers: HashMap<String, String>,
     pub body: String,
     pub params: HashMap<String, String>, // Params pour stocker les paramètres d'URL
+    pub query: HashMap<String, String>,
 }
 
 pub struct Response {
@@ -94,10 +95,14 @@ impl Request {
             headers: HashMap::new(),
             body: String::new(),
             params: HashMap::new(), // Initie les paramètres d'URL
+            query: HashMap::new(),  // Initie les paramètres de requête
         }
     }
     pub fn param(&self, key: &str) -> Option<&String> {
         self.params.get(key)
+    }
+    pub fn query(&self, key: &str) -> Option<&String> {
+        self.query.get(key)
     }
 }
 
@@ -109,12 +114,31 @@ pub fn parse_request(request: &str) -> Result<Request, &str> {
     };
     let (headers, body) = parse_headers_and_body(&lines[1..]);
 
+    let mut path_parts = path.splitn(2, '?');
+    let clean_path = path_parts.next().unwrap_or(path);
+    let query_string = path_parts.next().unwrap_or("");
+
+    let mut query = HashMap::new();
+
+    for pair in query_string.split("&") {
+        if pair.is_empty() {
+            continue;
+        }
+
+        let mut parts = pair.splitn(2, '=');
+        let key = parts.next().unwrap_or("");
+        let value = parts.next().unwrap_or("");
+
+        query.insert(key.to_string(), value.to_string());
+    }
+
     Ok(Request {
         method: method.to_string(),
-        path: path.to_string(),
+        path: clean_path.to_string(),
         headers,
         body,
         params: HashMap::new(),
+        query,
     })
 }
 
@@ -215,5 +239,15 @@ mod tests {
         assert_eq!(headers.get("Host"), Some(&"localhost".to_string()));
         assert_eq!(headers.get("Content-Length"), Some(&"5".to_string()));
         assert_eq!(body, "hello");
+    }
+
+    #[test]
+    fn test_parse_request_with_query_string() {
+        let raw = "GET /users/42?admin=true&sort=asc HTTP/1.1\r\nHost: localhost\r\n\r\n";
+        let request = parse_request(raw).unwrap();
+
+        assert_eq!(request.path, "/users/42");
+        assert_eq!(request.query("admin"), Some(&"true".to_string()));
+        assert_eq!(request.query("sort"), Some(&"asc".to_string()));
     }
 }
