@@ -179,27 +179,32 @@ impl App {
                     }
                 };
 
-                let response_str = response.to_string();
-                stream.write_all(response_str.as_bytes()).unwrap();
-                stream.flush().unwrap();
+                self.write_response(&mut stream, &response, "request response");
             }
             Err(ReadHttpRequestError::Timeout) => {
                 let response = Response::new(408, "Request Timeout");
-                let response_str = response.to_string();
-                if let Err(e) = stream.write_all(response_str.as_bytes()) {
-                    eprintln!("Failed to write timeout response: {}", e);
-                }
+                self.write_response(&mut stream, &response, "timeout response");
             }
             Err(ReadHttpRequestError::RequestTooLarge) => {
                 let response = Response::new(413, "Payload Too Large");
-                let response_str = response.to_string();
-                if let Err(e) = stream.write_all(response_str.as_bytes()) {
-                    eprintln!("Failed to write size limit response: {}", e);
-                }
+                self.write_response(&mut stream, &response, "size limit response");
             }
             Err(ReadHttpRequestError::Io(e)) => {
                 eprintln!("Failed to read stream: {}", e);
             }
+        }
+    }
+
+    fn write_response(&self, stream: &mut TcpStream, response: &Response, context: &str) {
+        let response_str = response.to_string();
+
+        if let Err(e) = stream.write_all(response_str.as_bytes()) {
+            eprintln!("Failed to write {}: {}", context, e);
+            return;
+        }
+
+        if let Err(e) = stream.flush() {
+            eprintln!("Failed to flush {}: {}", context, e);
         }
     }
 
