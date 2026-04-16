@@ -66,6 +66,8 @@ impl Response {
         let reason = match self.status_code {
             200 => "OK",
             400 => "Bad Request",
+            408 => "Request Timeout",
+            413 => "Payload Too Large",
             404 => "Not Found",
             500 => "Internal Server Error",
             _ => "Unknown",
@@ -242,6 +244,21 @@ mod tests {
         let response = Response::new(200, "").send("body");
         assert_eq!(response.body, "body");
     }
+
+    #[test]
+    fn test_response_to_string_supports_timeout_status() {
+        let response = Response::new(408, "Request Timeout");
+        assert!(response.to_string().starts_with("HTTP/1.1 408 Request Timeout\r\n"));
+    }
+
+    #[test]
+    fn test_response_to_string_supports_payload_too_large_status() {
+        let response = Response::new(413, "Payload Too Large");
+        assert!(response
+            .to_string()
+            .starts_with("HTTP/1.1 413 Payload Too Large\r\n"));
+    }
+
     #[test]
     fn test_parse_headers_and_body() {
         let (headers, body) =

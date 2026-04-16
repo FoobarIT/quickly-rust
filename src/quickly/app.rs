@@ -2,9 +2,12 @@ use crate::quickly::http::{Request, Response};
 use crate::quickly::router::Router;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::time::Duration;
 
 const ADDR: &str = "127.0.0.1";
 const READ_BUFFER_SIZE: usize = 1024;
+const MAX_REQUEST_SIZE: usize = 64 * 1024;
+const STREAM_READ_TIMEOUT: Duration = Duration::from_secs(5);
 
 struct Middleware {
     path: Option<String>,
@@ -14,6 +17,12 @@ struct Middleware {
 pub struct App {
     router: Router,
     middlewares: Vec<Middleware>,
+}
+
+enum ReadHttpRequestError {
+    Io(std::io::Error),
+    Timeout,
+    RequestTooLarge,
 }
 
 impl App {
@@ -95,6 +104,13 @@ impl App {
 
             request_data.extend_from_slice(&buffer[..bytes_read]);
 
+            if request_data.len() > MAX_REQUEST_SIZE {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Request exceeds maximum size",
+                ));
+            }
+
             let request_str = String::from_utf8_lossy(&request_data);
 
             if let Some(headers_end) = request_str.find("\r\n\r\n") {
@@ -116,6 +132,13 @@ impl App {
                     })
                     .unwrap_or(0);
 
+                if body_start + content_length > MAX_REQUEST_SIZE {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "Request exceeds maximum size",
+                    ));
+                }
+
                 if request_data.len() >= body_start + content_length {
                     break;
                 }
@@ -126,7 +149,25 @@ impl App {
     }
 
     fn handle_connection(&self, mut stream: TcpStream) {
-        match self.read_http_request(&mut stream) {
+        if let Err(e) = stream.set_read_timeout(Some(STREAM_READ_TIMEOUT)) {
+            eprintln!("Failed to configure read timeout: {}", e);
+        }
+
+        let read_result = self
+            .read_http_request(&mut stream)
+            .map_err(|err| match err.kind() {
+                std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock => {
+                    ReadHttpRequestError::Timeout
+                }
+                std::io::ErrorKind::InvalidData
+                    if err.to_string() == "Request exceeds maximum size" =>
+                {
+                    ReadHttpRequestError::RequestTooLarge
+                }
+                _ => ReadHttpRequestError::Io(err),
+            });
+
+        match read_result {
             Ok(request_str) => {
                 let request_result = crate::quickly::http::parse_request(&request_str);
 
@@ -142,7 +183,21 @@ impl App {
                 stream.write_all(response_str.as_bytes()).unwrap();
                 stream.flush().unwrap();
             }
-            Err(e) => {
+            Err(ReadHttpRequestError::Timeout) => {
+                let response = Response::new(408, "Request Timeout");
+                let response_str = response.to_string();
+                if let Err(e) = stream.write_all(response_str.as_bytes()) {
+                    eprintln!("Failed to write timeout response: {}", e);
+                }
+            }
+            Err(ReadHttpRequestError::RequestTooLarge) => {
+                let response = Response::new(413, "Payload Too Large");
+                let response_str = response.to_string();
+                if let Err(e) = stream.write_all(response_str.as_bytes()) {
+                    eprintln!("Failed to write size limit response: {}", e);
+                }
+            }
+            Err(ReadHttpRequestError::Io(e)) => {
                 eprintln!("Failed to read stream: {}", e);
             }
         }
