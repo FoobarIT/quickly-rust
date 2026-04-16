@@ -107,8 +107,19 @@ impl Request {
 }
 
 pub fn parse_request(request: &str) -> Result<Request, &str> {
+    let trimmed_request = request.trim_matches(|c| c == '\r' || c == '\n');
+
+    if trimmed_request.is_empty() {
+        return Err("Empty request");
+    }
+
     let lines: Vec<&str> = request.lines().collect();
-    let (method, path) = match parse_request_line(lines[0]) {
+    let request_line = match lines.first() {
+        Some(line) if !line.trim().is_empty() => *line,
+        _ => return Err("Invalid request"),
+    };
+
+    let (method, path) = match parse_request_line(request_line) {
         Ok((method, path)) => (method, path),
         Err(e) => return Err(e),
     };
@@ -249,5 +260,17 @@ mod tests {
         assert_eq!(request.path, "/users/42");
         assert_eq!(request.query("admin"), Some(&"true".to_string()));
         assert_eq!(request.query("sort"), Some(&"asc".to_string()));
+    }
+
+    #[test]
+    fn test_parse_request_rejects_empty_request() {
+        assert!(matches!(parse_request(""), Err("Empty request")));
+        assert!(matches!(parse_request("\r\n\r\n"), Err("Empty request")));
+    }
+
+    #[test]
+    fn test_parse_request_rejects_blank_request_line() {
+        let raw = "\r\nHost: localhost\r\n\r\n";
+        assert!(matches!(parse_request(raw), Err("Invalid request")));
     }
 }
