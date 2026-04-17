@@ -115,9 +115,10 @@ pub fn parse_request(request: &str) -> Result<Request, &str> {
         return Err("Empty request");
     }
 
-    let lines: Vec<&str> = request.lines().collect();
-    let request_line = match lines.first() {
-        Some(line) if !line.trim().is_empty() => *line,
+    let (head, body) = split_head_and_body(request);
+    let mut header_lines = head.split("\r\n");
+    let request_line = match header_lines.next() {
+        Some(line) if !line.trim().is_empty() => line,
         _ => return Err("Invalid request"),
     };
 
@@ -125,7 +126,7 @@ pub fn parse_request(request: &str) -> Result<Request, &str> {
         Ok((method, path)) => (method, path),
         Err(e) => return Err(e),
     };
-    let (headers, body) = parse_headers_and_body(&lines[1..]);
+    let headers = parse_headers(header_lines);
 
     let mut path_parts = path.splitn(2, '?');
     let clean_path = path_parts.next().unwrap_or(path);
@@ -149,31 +150,29 @@ pub fn parse_request(request: &str) -> Result<Request, &str> {
         method: method.to_string(),
         path: clean_path.to_string(),
         headers,
-        body,
+        body: body.to_string(),
         params: HashMap::new(),
         query,
     })
 }
 
-pub fn parse_headers_and_body(lines: &[&str]) -> (HashMap<String, String>, String) {
+fn split_head_and_body(request: &str) -> (&str, &str) {
+    match request.split_once("\r\n\r\n") {
+        Some((head, body)) => (head, body),
+        None => (request, ""),
+    }
+}
+
+fn parse_headers<'a>(lines: impl Iterator<Item = &'a str>) -> HashMap<String, String> {
     let mut headers = HashMap::new();
-    let mut body = String::new();
-    let mut is_body = false;
 
     for line in lines {
-        if line.is_empty() {
-            is_body = true;
-            continue;
-        }
-        if is_body {
-            body.push_str(line);
-        } else {
-            if let Some((key, value)) = parse_header(line) {
-                headers.insert(key, value);
-            }
+        if let Some((key, value)) = parse_header(line) {
+            headers.insert(key, value);
         }
     }
-    (headers, body)
+
+    headers
 }
 // Fonction pour analyser la première ligne d'une requête HTTP (méthode et chemin)
 fn parse_request_line(request: &str) -> Result<(&str, &str), &str> {
@@ -261,8 +260,9 @@ mod tests {
 
     #[test]
     fn test_parse_headers_and_body() {
-        let (headers, body) =
-            parse_headers_and_body(&["Host: localhost", "Content-Length: 5", "", "hello"]);
+        let (head, body) =
+            split_head_and_body("GET / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 5\r\n\r\nhello");
+        let headers = parse_headers(head.split("\r\n").skip(1));
 
         assert_eq!(headers.get("Host"), Some(&"localhost".to_string()));
         assert_eq!(headers.get("Content-Length"), Some(&"5".to_string()));
@@ -277,6 +277,15 @@ mod tests {
         assert_eq!(request.path, "/users/42");
         assert_eq!(request.query("admin"), Some(&"true".to_string()));
         assert_eq!(request.query("sort"), Some(&"asc".to_string()));
+    }
+
+    #[test]
+    fn test_parse_request_preserves_multiline_body() {
+        let raw =
+            "POST /notes HTTP/1.1\r\nHost: localhost\r\nContent-Length: 12\r\n\r\nhello\r\nworld";
+        let request = parse_request(raw).unwrap();
+
+        assert_eq!(request.body, "hello\r\nworld");
     }
 
     #[test]
