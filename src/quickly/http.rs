@@ -66,6 +66,7 @@ impl Response {
         let reason = match self.status_code {
             200 => "OK",
             400 => "Bad Request",
+            405 => "Method Not Allowed",
             408 => "Request Timeout",
             413 => "Payload Too Large",
             404 => "Not Found",
@@ -248,6 +249,14 @@ mod tests {
     fn test_response_to_string_supports_timeout_status() {
         let response = Response::new(408, "Request Timeout");
         assert!(response.to_string().starts_with("HTTP/1.1 408 Request Timeout\r\n"));
+    }
+
+    #[test]
+    fn test_response_to_string_supports_method_not_allowed_status() {
+        let response = Response::new(405, "Method Not Allowed");
+        assert!(response
+            .to_string()
+            .starts_with("HTTP/1.1 405 Method Not Allowed\r\n"));
     }
 
     #[test]

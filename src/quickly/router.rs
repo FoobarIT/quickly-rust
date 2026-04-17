@@ -22,21 +22,31 @@ impl Router {
     pub fn handle_request(&self, request: &mut Request) -> Response {
         let (method, path) = (request.method.as_str(), request.path.as_str());
         let mut found_route = None;
+        let mut allowed_methods = Vec::new();
 
         for (route_key, handler) in &self.routes {
             let (route_method, route_path) = self.parse_route_key(route_key);
 
-            if method == route_method {
-                if let Some(params) = self.match_path(route_path, path) {
+            if let Some(params) = self.match_path(route_path, path) {
+                if method == route_method {
                     request.params = params;
                     found_route = Some(handler);
                     break;
+                } else {
+                    allowed_methods.push(route_method);
                 }
             }
         }
 
         match found_route {
             Some(handler) => handler(request, Response::new(200, "OK")),
+            None if !allowed_methods.is_empty() => {
+                allowed_methods.sort_unstable();
+                allowed_methods.dedup();
+
+                Response::new(405, "Method Not Allowed")
+                    .header("Allow", &allowed_methods.join(", "))
+            }
             None => Response::new(404, "Not Found"),
         }
     }
@@ -64,5 +74,48 @@ impl Router {
             }
         }
         Some(params)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ok_handler(_req: &mut Request, res: Response) -> Response {
+        res.send("ok")
+    }
+
+    #[test]
+    fn test_handle_request_returns_method_not_allowed_for_known_path() {
+        let mut router = Router::new();
+        router.get_test_route_setup();
+
+        let mut request = Request::new("DELETE", "/users/42");
+        let response = router.handle_request(&mut request);
+
+        assert_eq!(response.status_code, 405);
+        assert_eq!(
+            response.headers.get("Allow"),
+            Some(&"GET, POST".to_string())
+        );
+    }
+
+    #[test]
+    fn test_handle_request_returns_not_found_for_unknown_path() {
+        let mut router = Router::new();
+        router.get_test_route_setup();
+
+        let mut request = Request::new("GET", "/missing");
+        let response = router.handle_request(&mut request);
+
+        assert_eq!(response.status_code, 404);
+        assert!(!response.headers.contains_key("Allow"));
+    }
+
+    impl Router {
+        fn get_test_route_setup(&mut self) {
+            self.add_route("POST", "/users/:id", ok_handler);
+            self.add_route("GET", "/users/:id", ok_handler);
+        }
     }
 }
